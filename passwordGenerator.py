@@ -2,21 +2,19 @@ import tkinter as tk
 from tkinter import ttk
 import secrets
 import string
+import hashlib
 
 AMBIGUOUS = set("Il1O0")
 
 # ---------------- PASSWORD LOGIC ---------------- #
-
 def build_charset(upper, lower, digits, symbols, avoid_ambig):
     charset = ""
     if upper:  charset += string.ascii_uppercase
     if lower:  charset += string.ascii_lowercase
     if digits: charset += string.digits
     if symbols: charset += "!@#$%^&*()-_=+[]{};:,.<>/?"
-
     if avoid_ambig:
         charset = "".join(ch for ch in charset if ch not in AMBIGUOUS)
-
     return charset
 
 def generate_password(length, charset):
@@ -28,84 +26,104 @@ def copy_to_clipboard(text):
     root.clipboard_clear()
     root.clipboard_append(text)
 
-# ---------------- DARK MODE ---------------- #
+# ---------------- HASHING ---------------- #
+def hash_password(password):
+    """Return the SHA-256 hash of the password."""
+    return hashlib.sha256(password.encode()).hexdigest()
 
+# ---------------- DARK MODE ---------------- #
 def apply_theme():
-    if dark_mode.get():
-        style.theme_use("clam")
-        root.configure(bg="#1e1e1e")
-        style.configure("TLabel", background="#1e1e1e", foreground="white")
-        style.configure("TCheckbutton", background="#1e1e1e", foreground="white")
-        style.configure("TButton", background="#3b3b3b", foreground="white")
-        style.configure("TFrame", background="#1e1e1e")
-        style.configure("Horizontal.TScale", troughcolor="#2d2d2d", background="#3b3b3b")
-        password_entry.configure(background="#2d2d2d", foreground="white", insertbackground="white")
-        theme_button.configure(text="☀ Light Mode")
-    else:
-        style.theme_use("default")
-        root.configure(bg="SystemButtonFace")
-        password_entry.configure(background="white", foreground="black", insertbackground="black")
-        theme_button.configure(text="🌙 Dark Mode")
+    bg = "#1e1e1e" if dark_mode.get() else "#f0f0f0"
+    fg = "white" if dark_mode.get() else "black"
+    entry_bg = "#2a2a2a" if dark_mode.get() else "white"
+    slider_trough = "#2a2a2a" if dark_mode.get() else "#d0d0d0"
+    slider_bg = "#444444" if dark_mode.get() else "#c0c0c0"
+    btn_bg = "#5555ff" if dark_mode.get() else "#2196f3"
+    btn_fg = "white"
+    copy_btn_bg = "#4caf50" if dark_mode.get() else "#4caf50"
+
+    root.configure(bg=bg)
+    main.configure(bg=bg)
+
+    for widget in main.winfo_children():
+        cls = widget.winfo_class()
+        if cls in ["TLabel", "Label"]:
+            widget.configure(bg=bg, fg=fg)
+        elif cls == "TCheckbutton":
+            widget.configure(bg=bg, fg=fg, selectcolor=bg)
+        elif cls == "Entry":
+            widget.configure(bg=entry_bg, fg=fg, insertbackground=fg)
+        elif cls == "Button":
+            if widget not in [theme_button, generate_button, copy_button]:
+                widget.configure(bg=btn_bg, fg=btn_fg)
+
+    theme_button.configure(bg="#9c27b0", fg="white")
+    generate_button.configure(bg=btn_bg, fg=btn_fg, activebackground="#6666ff" if dark_mode.get() else "#1976d2")
+    copy_button.configure(bg=copy_btn_bg, fg="white", activebackground="#5cbf60")
+    theme_button.configure(text="☀ Light Mode" if dark_mode.get() else "🌙 Dark Mode")
 
 def toggle_theme():
     dark_mode.set(not dark_mode.get())
     apply_theme()
 
 # ---------------- EVENT HANDLERS ---------------- #
+def update_hash_display():
+    if show_hash_var.get():
+        hashed = hash_password(password_var.get())
+        hash_label.config(text=f"SHA-256 Hash: {hashed}")
+    else:
+        hash_label.config(text="")
 
 def on_generate():
     length = length_var.get()
     charset = build_charset(
-        upper_var.get(),
-        lower_var.get(),
-        digits_var.get(),
-        symbols_var.get(),
-        ambig_var.get()
+        upper_var.get(), lower_var.get(), digits_var.get(),
+        symbols_var.get(), ambig_var.get()
     )
     pw = generate_password(length, charset)
     password_var.set(pw)
+    update_hash_display()
 
 def on_copy():
     copy_to_clipboard(password_var.get())
-    copy_label.config(text="Copied!", foreground="green")
-    root.after(1500, lambda: copy_label.config(text="", foreground="green" if dark_mode.get() else "black"))
+    copy_label.config(text="Copied!", fg="green")
+    root.after(1500, lambda: copy_label.config(text="", fg="white" if dark_mode.get() else "black"))
 
 def update_length_label(event):
     length_value_label.config(text=str(int(length_var.get())))
 
 # ---------------- GUI SETUP ---------------- #
-
 root = tk.Tk()
-root.title("Password Generator")
-root.geometry("500x400")
-root.resizable(True, True)
-
+root.title("Password Generator with Hash")
+root.geometry("520x460")
+root.resizable(False, False)
 style = ttk.Style()
 
-main = ttk.Frame(root, padding=20)
+main = tk.Frame(root, padx=25, pady=25)
 main.pack(fill="both", expand=True)
 
-# Output field
+# Password Entry
 password_var = tk.StringVar()
-password_entry = tk.Entry(main, textvariable=password_var, font=("Courier", 14), width=32)
-password_entry.grid(row=0, column=0, columnspan=3, pady=(0, 10), sticky="ew")
+password_entry = tk.Entry(main, textvariable=password_var, font=("Consolas", 14, "bold"),
+                          width=36, justify="center", relief="flat", bd=5)
+password_entry.grid(row=0, column=0, columnspan=4, pady=(0,10))
 
-copy_button = ttk.Button(main, text="Copy", command=on_copy)
-copy_button.grid(row=0, column=3, padx=5)
+copy_button = tk.Button(main, text="Copy", command=on_copy, font=("Segoe UI", 10, "bold"),
+                        relief="flat", bd=0, padx=10)
+copy_button.grid(row=0, column=4, padx=5)
 
-copy_label = ttk.Label(main, text="", font=("TkDefaultFont", 9))
-copy_label.grid(row=1, column=0, columnspan=4, pady=(0,10))
+copy_label = tk.Label(main, text="", font=("Segoe UI", 9))
+copy_label.grid(row=1, column=0, columnspan=5, pady=(0,10))
 
-# Length slider
-ttk.Label(main, text="Length:").grid(row=2, column=0, sticky="w")
+# Password Length Slider
+tk.Label(main, text="Length:").grid(row=2, column=0, sticky="w")
 length_var = tk.IntVar(value=16)
 length_slider = ttk.Scale(main, from_=6, to=64, orient="horizontal", variable=length_var, command=update_length_label)
-length_slider.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(5,0))
+length_slider.grid(row=2, column=1, columnspan=3, sticky="ew", padx=(5,0))
+length_value_label = tk.Label(main, text=str(length_var.get()), width=3)
+length_value_label.grid(row=2, column=4, sticky="w")
 
-length_value_label = ttk.Label(main, text=str(length_var.get()), width=3)
-length_value_label.grid(row=2, column=3, sticky="w")
-
-# Checkboxes
+# Character Options
 upper_var = tk.BooleanVar(value=True)
 lower_var = tk.BooleanVar(value=True)
 digits_var = tk.BooleanVar(value=True)
@@ -122,23 +140,34 @@ opts = [
 
 row = 3
 for label, var in opts:
-    ttk.Checkbutton(main, text=label, variable=var).grid(row=row, column=0, columnspan=4, sticky="w", pady=2)
+    tk.Checkbutton(main, text=label, variable=var, anchor="w").grid(row=row, column=0, columnspan=5, sticky="w", pady=2)
     row += 1
 
-# Generate button
-generate_button = ttk.Button(main, text="Generate Password", command=on_generate)
-generate_button.grid(row=row, column=0, columnspan=4, pady=15, sticky="ew")
+# Show hash checkbox
+show_hash_var = tk.BooleanVar(value=False)
+tk.Checkbutton(main, text="Show SHA-256 Hash", variable=show_hash_var,
+               command=update_hash_display, anchor="w").grid(row=row, column=0, columnspan=5, sticky="w", pady=2)
+row += 1
 
-# Dark mode toggle button
+# Hash label
+hash_label = tk.Label(main, text="", font=("Consolas", 10), wraplength=480, justify="left")
+hash_label.grid(row=row, column=0, columnspan=5, pady=(5,0), sticky="w")
+row += 1
+
+# Generate Button
+generate_button = tk.Button(main, text="Generate Password", command=on_generate,
+                            relief="flat", bd=0, padx=10, pady=5)
+generate_button.grid(row=row, column=0, columnspan=5, pady=15, sticky="ew")
+row += 1
+
+# Dark Mode Toggle
 dark_mode = tk.BooleanVar(value=False)
-theme_button = ttk.Button(main, text="🌙 Dark Mode", command=toggle_theme)
-theme_button.grid(row=row+1, column=0, columnspan=4, sticky="ew")
+theme_button = tk.Button(main, text="🌙 Dark Mode", command=toggle_theme,
+                         relief="flat", bd=0, padx=10, pady=5)
+theme_button.grid(row=row, column=0, columnspan=5, sticky="ew")
 
-# Keyboard shortcut Ctrl+C to copy
 root.bind("<Control-c>", lambda e: on_copy())
 
-# Apply initial theme and generate first password
 apply_theme()
 on_generate()
-
 root.mainloop()
