@@ -1,100 +1,70 @@
-# pass_generator
+# pass_generator (Python-focused)
 
-pass_generator is a small, focused project to generate strong, memorable passwords and to help you understand the principles of password encryption and secure storage. This repository is intended both as a practical tool and as a learning resource for developers and users who want to improve their password security.
+This repository is a small, focused learning project: it generates strong, memorable passwords and demonstrates SHA-256 hashing and safer alternatives using Python so you can learn the differences between hashing and encryption and see hashing in practice.
 
-## Table of Contents
+Warning: The SHA-256 examples in this repo are for learning and deterministic hashing demonstrations only. Do not use plain SHA-256 (or any fast hash) by itself for storing user login passwords in production — use an adaptive KDF such as Argon2 or bcrypt with a unique salt.
 
-- [Project Goals](#project-goals)
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [How It Generates Strong Passwords](#how-it-generates-strong-passwords)
-- [Password Encryption vs Hashing (What to use and when)](#password-encryption-vs-hashing-what-to-use-and-when)
-- [Security Best Practices](#security-best-practices)
-- [Examples](#examples)
-- [Contributing](#contributing)
-- [License](#license)
+Table of contents
+- Overview
+- Quick start (Python)
+- How this repo uses SHA-256 (Python)
+- Python examples (generation, SHA-256, PBKDF2)
+- Verifying hashes (Python, conceptual)
+- Why SHA-256 is not suitable for password storage
+- When to use hashing vs encryption
+- Security tips (Python-relevant)
+- Contributing and license
+- Further reading
 
-## Project Goals
+Overview
+This project:
+- Generates passwords with configurable options (length, character sets, passphrase-style) using Python's secrets module.
+- Computes SHA-256 digests of generated passwords to teach hashing concepts using hashlib.
+- Shows a simple, safer example using PBKDF2 (also available in Python's hashlib) so you can compare fast hashing vs an adaptive KDF.
 
-- Provide a simple and reliable way to generate strong passwords for personal and developer use.
-- Explain password encryption and secure storage practices so users understand trade-offs and choose safe approaches.
-- Offer configurable options (length, character sets, pronounceability hints) so generated passwords fit different use-cases.
-
-## Features
-
-- Configurable password length and allowed character sets (upper, lower, numbers, symbols).
-- Options for generating fully random or more memorable (pattern/pronounceable) passwords.
-- Explanatory documentation on encryption, hashing, and storage best practices.
-- Example code snippets showing how to securely encrypt or hash passwords for different needs.
-
-## Quick Start
-
-1. Clone this repo:
+Quick start (Python)
+1. Clone the repo:
    git clone https://github.com/HugoHern/pass_generator.git
-2. Inspect the README and the generated example scripts in the project.
-3. Run the generator (example — replace with actual command for your implementation):
-   - Node.js example: `node generate.js --length 16 --symbols`
-   - Python example: `python generate.py --length 16 --symbols`
+2. Change into the repo and run the Python examples (adjust filenames if your repository uses different names):
+   - Generate + hash: `python generate_and_hash.py --length 16 --symbols`
+   - PBKDF2 example: `python pbkdf2_example.py`
 
-(Adjust the command above to the language and entry point used in this repository.)
+How this repo uses SHA-256 (Python)
+Search the code for:
+- "sha256" or "SHA-256"
+- Calls to `hashlib.sha256` or similar
 
-## How It Generates Strong Passwords
+Those locations show where the repository computes the digest. The examples below mirror the patterns used in the code so you can run and experiment locally.
 
-A strong password is primarily about unpredictability (entropy) and length. This project uses a cryptographically secure random source (e.g., crypto.randomBytes in Node.js or secrets in Python) to select characters from the configured character set.
+Python examples (runnable, conceptual)
 
-Key guidelines:
-- Prefer length over obscure character sets: a 16+ character password from a large character set is typically stronger than a shorter password with symbols.
-- Aim for at least 60–80 bits of entropy for long-term secrets; for many accounts, 80+ bits is recommended.
-- Avoid using predictable patterns or reused passwords across sites.
+````markdown
+# generate_and_hash.py
+```python
+import secrets
+import hashlib
+import string
+import argparse
 
-## Password Encryption vs Hashing (What to use and when)
+def generate_password(length=16, charset=None):
+    if charset is None:
+        charset = string.ascii_letters + string.digits + "!@#$%^&*()-_"
+    return ''.join(secrets.choice(charset) for _ in range(length))
 
-- Hashing (one-way): Use for verifying passwords you accept from users (login). Use slow, adaptive algorithms like Argon2, bcrypt, or PBKDF2 with a unique per-password salt. This is not reversible.
-- Encryption (two-way): Use only when you need to recover the original secret (e.g., storing an API key you must use). Use authenticated encryption (AES-256-GCM or ChaCha20-Poly1305) with secure key management. If possible, avoid storing reversible secrets at all.
-- General rule: For user passwords, always hash. For secrets you must retrieve and use, encrypt with a well-protected key.
+def sha256_hex(s: str) -> str:
+    return hashlib.sha256(s.encode('utf-8')).hexdigest()
 
-## Security Best Practices
+if __name__ == '__main__':
+    p = argparse.ArgumentParser()
+    p.add_argument('--length', type=int, default=16)
+    p.add_argument('--symbols', action='store_true')
+    args = p.parse_args()
 
-- Never log plaintext passwords.
-- Do not embed encryption keys in source code or commit them. Use environment variables, a secret manager, or a hardware security module.
-- Use unique salts and appropriate work factors for hashing (e.g., bcrypt cost, Argon2 memory/time settings).
-- Use a cryptographically secure RNG for generation (do not use Math.random or insecure generators).
-- Educate users to use a password manager to store unique passwords per site.
+    charset = None
+    if args.symbols:
+        charset = string.ascii_letters + string.digits + "!@#$%^&*()-_"
 
-## Examples
-
-- Generate a 16-character password with upper/lower/numbers/symbols:
-  `generate --length 16 --upper --lower --numbers --symbols`
-
-- Generate a pronounceable/passphrase-like password:
-  `generate --words 4 --separator "-"`
-
-- Hashing example (conceptual):
-  - Argon2: argon2.hash(password, { salt, time, memory, parallelism })
-
-- Encryption example (conceptual):
-  - AES-GCM: encrypt(plaintext, key, nonce) -> ciphertext + tag
-
-(See the repo's code for runnable examples and implementation-specific usage.)
-
-## Contributing
-
-Contributions are welcome. Please:
-- Open an issue to discuss feature requests or bugs.
-- Follow the code style used in the repository and include tests where appropriate.
-- Do not commit secrets or private keys.
-
-## License
-
-Specify your license here (e.g., MIT). If you want, I can add a LICENSE file for you.
-
-## Further Reading
-
-- OWASP Password Storage Cheat Sheet — guidance on hashing and storage.
-- NIST Digital Identity Guidelines — recommendations for password policies.
-- RFC 8017 (PKCS #1) and modern cryptography libraries docs for encryption/hashing implementation details.
-
-If you'd like, I can:
-- Tailor the Quick Start commands to match the exact language and entry points in this repository.
-- Commit this README.md to the repository for you.
-- Add example scripts that demonstrate Argon2 hashing and AES-GCM encryption with secure key handling.
+    pwd = generate_password(args.length, charset)
+    print('password:', pwd)
+    print('sha256:', sha256_hex(pwd))
+```
